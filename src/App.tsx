@@ -1,12 +1,5 @@
 /* eslint-disable no-alert */
 import React from 'react';
-import SpInAppUpdates, {
-  NeedsUpdateResponse,
-  IAUUpdateKind,
-  StartUpdateOptions,
-  StatusUpdateEvent,
-} from 'sp-react-native-in-app-updates';
-
 import {
   SafeAreaView,
   StyleSheet,
@@ -16,6 +9,13 @@ import {
   Platform,
   Text,
 } from 'react-native';
+import SpInAppUpdates, {
+  NeedsUpdateResponse,
+  IAUUpdateKind,
+  StartUpdateOptions,
+  StatusUpdateEvent,
+} from 'sp-react-native-in-app-updates';
+import DeviceInfo from 'react-native-device-info';
 
 const BUTTON_COLOR = '#46955f';
 
@@ -25,6 +25,9 @@ type AppState = {
   otherData?: NeedsUpdateResponse | null;
   error: string | null;
 };
+
+const appVersion = DeviceInfo.getVersion();
+
 export default class App extends React.Component<{}, AppState> {
   private inAppUpdates: SpInAppUpdates;
 
@@ -37,14 +40,14 @@ export default class App extends React.Component<{}, AppState> {
   constructor(props: any) {
     super(props);
     this.inAppUpdates = new SpInAppUpdates(
-      true // debug verbosely
+      true, // debug verbosely
     );
   }
 
   checkForUpdates = () => {
     this.inAppUpdates
       .checkNeedsUpdate({
-        curVersion: '0.0.8',
+        curVersion: appVersion,
         // toSemverConverter: (ver: SemverVersion) => {
         //   // i.e if 400401 is the Android version, and we want to convert it to 4.4.1
         //   const androidVersionNo = parseInt(ver, 10);
@@ -61,7 +64,8 @@ export default class App extends React.Component<{}, AppState> {
           otherData: result,
         });
       })
-      .catch((error) => {
+      .catch(error => {
+        console.log(error);
         this.setState({
           error,
         });
@@ -72,7 +76,7 @@ export default class App extends React.Component<{}, AppState> {
     if (this.state.needsUpdate) {
       let updateOptions: StartUpdateOptions = {};
       if (Platform.OS === 'android' && this.state.otherData) {
-        const { otherData } = this.state || {
+        const {otherData} = this.state || {
           otherData: null,
         };
         // @ts-expect-error TODO: Check if updatePriority exists
@@ -105,7 +109,7 @@ export default class App extends React.Component<{}, AppState> {
   };
 
   render() {
-    const { needsUpdate, error } = this.state;
+    const {needsUpdate, error} = this.state;
     let statusTxt;
     if (needsUpdate) {
       statusTxt = 'YES';
@@ -141,11 +145,11 @@ export default class App extends React.Component<{}, AppState> {
               style={{
                 // backgroundColor: 'pink'
                 alignItems: 'center',
-              }}
-            >
+              }}>
               <Text
-                style={styles.textStyle}
-              >{`Needs update: ${'\n'}${statusTxt}`}</Text>
+                style={
+                  styles.textStyle
+                }>{`Needs update: ${'\n'}${statusTxt}`}</Text>
             </View>
             {error ? (
               <View style={styles.errorContainer}>

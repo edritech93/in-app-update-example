@@ -31,8 +31,10 @@ local.properties
 *.iml
 *.hprof
 .cxx/
+*.keystore
 !debug.keystore
 android/app/release
+android/app/google-services.json
 
 # node.js
 #

@@ -1,5 +1,4 @@
-/* eslint-disable no-alert */
-import React from 'react';
+import * as React from 'react';
 import {
   SafeAreaView,
   StyleSheet,
@@ -8,44 +7,39 @@ import {
   Button,
   Platform,
   Text,
+  ActivityIndicator,
 } from 'react-native';
 import SpInAppUpdates, {
   NeedsUpdateResponse,
   IAUUpdateKind,
   StartUpdateOptions,
   StatusUpdateEvent,
+  AndroidInstallStatus,
 } from 'sp-react-native-in-app-updates';
 import DeviceInfo from 'react-native-device-info';
 
 const BUTTON_COLOR = '#46955f';
 
 const HIGH_PRIORITY_UPDATE = 5; // Arbitrary, depends on how you handle priority in the Play Console
-type AppState = {
-  needsUpdate: boolean | null;
-  otherData?: NeedsUpdateResponse | null;
-  error: string | null;
-};
 
 const appVersion = DeviceInfo.getVersion();
 
-export default class App extends React.Component<{}, AppState> {
-  private inAppUpdates: SpInAppUpdates;
+interface AppProps {}
 
-  state = {
-    needsUpdate: null,
-    otherData: null,
-    error: null,
-  };
+const App = (props: AppProps) => {
+  const [needsUpdate, setNeedsUpdate] = React.useState<boolean>(false);
+  const [otherData, setOtherData] = React.useState<
+    NeedsUpdateResponse | undefined
+  >(undefined);
+  const [error, setError] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
 
-  constructor(props: any) {
-    super(props);
-    this.inAppUpdates = new SpInAppUpdates(
-      true, // debug verbosely
-    );
-  }
+  let inAppUpdates: SpInAppUpdates = new SpInAppUpdates(
+    false, // debug verbosely
+  );
 
-  checkForUpdates = () => {
-    this.inAppUpdates
+  const checkForUpdates = () => {
+    inAppUpdates
       .checkNeedsUpdate({
         curVersion: appVersion,
         // toSemverConverter: (ver: SemverVersion) => {
@@ -59,26 +53,20 @@ export default class App extends React.Component<{}, AppState> {
         // },
       })
       .then((result: NeedsUpdateResponse) => {
-        this.setState({
-          needsUpdate: result.shouldUpdate,
-          otherData: result,
-        });
+        setNeedsUpdate(result.shouldUpdate);
+        setOtherData(result);
       })
-      .catch(error => {
-        console.log(error);
-        this.setState({
-          error,
-        });
+      .catch(e => {
+        console.log(e);
+        setError(e);
       });
   };
 
-  startUpdating = () => {
-    if (this.state.needsUpdate) {
+  const startUpdating = () => {
+    if (needsUpdate) {
+      setLoading(true);
       let updateOptions: StartUpdateOptions = {};
-      if (Platform.OS === 'android' && this.state.otherData) {
-        const {otherData} = this.state || {
-          otherData: null,
-        };
+      if (Platform.OS === 'android' && otherData) {
         // @ts-expect-error TODO: Check if updatePriority exists
         if (otherData?.updatePriority >= HIGH_PRIORITY_UPDATE) {
           updateOptions = {
@@ -90,15 +78,15 @@ export default class App extends React.Component<{}, AppState> {
           };
         }
       }
-      this.inAppUpdates.addStatusUpdateListener(this.onStatusUpdate);
-      this.inAppUpdates.startUpdate(updateOptions);
+      inAppUpdates.addStatusUpdateListener(onStatusUpdate);
+      inAppUpdates.startUpdate(updateOptions);
     } else {
       // @ts-ignore
       alert('doesnt look like we need an update');
     }
   };
 
-  onStatusUpdate = (event: StatusUpdateEvent) => {
+  const onStatusUpdate = (event: StatusUpdateEvent) => {
     // const {
     //   // status,
     //   bytesDownloaded,
@@ -106,62 +94,64 @@ export default class App extends React.Component<{}, AppState> {
     // } = status;
     // do something
     console.log(`@@ ${JSON.stringify(event)}`);
+    if (event.status === 11) {
+      setLoading(false);
+    }
   };
 
-  render() {
-    const {needsUpdate, error} = this.state;
-    let statusTxt;
-    if (needsUpdate) {
-      statusTxt = 'YES';
-    } else if (needsUpdate === false) {
-      statusTxt = 'NO';
-    } else if (error) {
-      statusTxt = 'Error, check below';
-    } else {
-      statusTxt = 'Not sure yet';
-    }
-    return (
-      <>
-        <StatusBar barStyle="dark-content" />
-        <SafeAreaView>
-          <View style={styles.container}>
-            <View style={styles.aButton}>
-              <Button
-                title="Check for updates"
-                color={BUTTON_COLOR}
-                onPress={this.checkForUpdates}
-              />
-            </View>
-            <View style={styles.aButton}>
-              <Button
-                disabled={!needsUpdate}
-                title="Start Updating"
-                color={BUTTON_COLOR}
-                onPress={this.startUpdating}
-              />
-            </View>
-            <View
-              // eslint-disable-next-line react-native/no-inline-styles
-              style={{
-                // backgroundColor: 'pink'
-                alignItems: 'center',
-              }}>
-              <Text
-                style={
-                  styles.textStyle
-                }>{`Needs update: ${'\n'}${statusTxt}`}</Text>
-            </View>
-            {error ? (
-              <View style={styles.errorContainer}>
-                <Text style={styles.errorTextStyle}>{`Error: ${error}`}</Text>
-              </View>
-            ) : null}
-          </View>
-        </SafeAreaView>
-      </>
-    );
+  let statusTxt;
+  if (needsUpdate) {
+    statusTxt = 'YES';
+  } else if (needsUpdate === false) {
+    statusTxt = 'NO';
+  } else if (error) {
+    statusTxt = 'Error, check below';
+  } else {
+    statusTxt = 'Not sure yet';
   }
-}
+
+  return (
+    <SafeAreaView style={{flex: 1}}>
+      <View style={styles.container}>
+        <View style={styles.aButton}>
+          <Button
+            title={'Check for updates'}
+            color={BUTTON_COLOR}
+            onPress={checkForUpdates}
+          />
+        </View>
+        <View style={styles.aButton}>
+          <Button
+            disabled={!needsUpdate}
+            title={'Start Updating'}
+            color={BUTTON_COLOR}
+            onPress={startUpdating}
+          />
+        </View>
+        <View style={{alignItems: 'center'}}>
+          <Text
+            style={
+              styles.textStyle
+            }>{`Needs update: ${'\n'}${statusTxt}`}</Text>
+        </View>
+        {error ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorTextStyle}>{`Error: ${error}`}</Text>
+          </View>
+        ) : null}
+      </View>
+      {loading && (
+        <ActivityIndicator
+          style={styles.loading}
+          color={'blue'}
+          size={'large'}
+        />
+      )}
+    </SafeAreaView>
+  );
+};
+
+export default App;
 
 const styles = StyleSheet.create({
   container: {
@@ -186,5 +176,13 @@ const styles = StyleSheet.create({
   errorTextStyle: {
     color: 'black',
     fontSize: 14,
+  },
+  loading: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: 'white',
   },
 });
